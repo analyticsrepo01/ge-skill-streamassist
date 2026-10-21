@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enterprise Assistant — Gemini Enterprise streamAssist</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            brand: {
+              primary: '#2563EB',
+              dark: '#1D4ED8',
+              light: '#EFF6FF',
+              charcoal: '#0F172A',
+              slate: '#1E293B',
+              gray: '#F8FAFC'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F172A; }
+    .brand-gradient { background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%); }
+    .markdown-body h1, .markdown-body h2, .markdown-body h3 { font-weight: 700; margin-top: 0.85rem; margin-bottom: 0.45rem; color: #0F172A; }
+    .markdown-body h1 { font-size: 1.25rem; }
+    .markdown-body h2 { font-size: 1.1rem; }
+    .markdown-body h3 { font-size: 1rem; }
+    .markdown-body p { margin-bottom: 0.65rem; line-height: 1.6; }
+    .markdown-body ul, .markdown-body ol { margin-left: 1.25rem; margin-bottom: 0.65rem; list-style-type: disc; }
+    .markdown-body li { margin-bottom: 0.25rem; }
+    .markdown-body table { width: 100%; border-collapse: collapse; margin: 0.85rem 0; font-size: 0.85rem; border-radius: 0.5rem; overflow: hidden; border: 1px solid #E2E8F0; }
+    .markdown-body th { background-color: #0F172A; color: #FFFFFF; text-align: left; padding: 0.6rem 0.75rem; font-weight: 600; }
+    .markdown-body td { padding: 0.6rem 0.75rem; border-top: 1px solid #E2E8F0; background-color: #FFFFFF; }
+    .markdown-body tr:nth-child(even) td { background-color: #F8FAFC; }
+    .markdown-body hr { margin: 0.85rem 0; border-color: #E2E8F0; }
+    .markdown-body blockquote { border-left: 4px solid #2563EB; background: #EFF6FF; padding: 0.6rem 0.9rem; border-radius: 0 0.5rem 0.5rem 0; margin: 0.65rem 0; }
+    .markdown-body code { background: #F1F5F9; padding: 0.15rem 0.35rem; border-radius: 0.25rem; font-size: 0.82rem; color: #1D4ED8; }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+  <!-- Top Navigation Bar -->
+  <header class="bg-brand-charcoal text-white border-b-4 border-brand-primary px-6 py-3 flex items-center justify-between shrink-0 shadow-md z-10">
+    <div class="flex items-center space-x-4">
+      <div class="w-10 h-10 rounded-lg brand-gradient flex items-center justify-center font-extrabold text-xl tracking-tighter shadow-inner">
+        GE
+      </div>
+      <div>
+        <div class="flex items-center space-x-2.5">
+          <span id="hdr-title" class="font-extrabold text-lg tracking-tight text-white">ENTERPRISE ASSISTANT</span>
+          <span class="text-xs uppercase tracking-widest px-2 py-0.5 rounded bg-brand-primary text-white font-semibold">streamAssist Portal</span>
+          <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono">Gemini Enterprise streamAssist Only</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-0.5">
+          GE Engine: <code class="text-slate-200 font-mono" id="hdr-engine">configured-via-env</code>
+        </p>
+      </div>
+    </div>
+
+    <div class="flex items-center space-x-2.5">
+      <div class="hidden lg:flex items-center space-x-2 bg-slate-800/90 border border-slate-700 px-3 py-1.5 rounded-lg text-xs">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="text-slate-400">Session:</span>
+        <span id="session-badge" class="font-mono text-slate-200">New Conversation</span>
+      </div>
+      <button onclick="openSkillModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 px-3 py-1.5 rounded-lg font-medium transition">
+        📜 View SKILL.md
+      </button>
+      <button onclick="resetSession()" class="text-xs brand-gradient hover:opacity-95 text-white px-3.5 py-1.5 rounded-lg font-semibold shadow transition">
+        + New Session
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- Left Control Sidebar -->
+    <aside class="w-96 bg-white border-r border-slate-200 flex flex-col overflow-y-auto shrink-0">
+      <!-- Capability Toggles -->
+      <div class="p-4 border-b border-slate-200 bg-slate-50/60">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">1. streamAssist Backend Capabilities</h2>
+
+        <!-- Skill Toggle Card -->
+        <div class="p-3 rounded-xl border border-slate-200 bg-white shadow-sm mb-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-brand-primary"></span>
+              <span class="text-sm font-bold text-slate-800">GE Skill &amp; Agent Orchestrator</span>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="toggle-skill" class="sr-only peer" checked onchange="updateModePills()">
+              <div class="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-primary"></div>
+            </label>
+          </div>
+          <div class="mt-2">
+            <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Active GE Skill / Agent</label>
+            <select id="skill-select" onchange="updateModePills()" class="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-800 font-medium outline-none focus:border-brand-primary">
+              <option value="auto">✨ Auto-Route Skill</option>
+              <option value="enterprise-orchestrator-skill">🧭 enterprise-orchestrator-skill (Stage 1-3)</option>
+              <option value="enterprise-triage-skill">🛡️ enterprise-triage-skill (4-Tier Triage)</option>
+            </select>
+          </div>
+          <p class="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+            Invokes <code class="text-[10px] bg-blue-50 text-brand-primary px-1 py-0.5 rounded">skillsSpec</code> &amp; <code class="text-[10px]">agentsSpec</code> via <code class="text-[10px]">streamAssist</code>.
+          </p>
+        </div>
+
+        <!-- GCS Bucket Connector Toggle Card -->
+        <div class="p-3 rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+              <span class="text-sm font-bold text-slate-800">GCS Bucket Connector</span>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="toggle-gcs" class="sr-only peer" checked onchange="updateModePills()">
+              <div class="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+            </label>
+          </div>
+          <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">
+            Grounds answers on Cloud Storage buckets via <code class="text-[11px]">toolsSpec.vertexAiSearchSpec.dataStoreSpecs</code>.
+          </p>
+          <div id="ds-checkbox-list" class="mt-2.5 pt-2 border-t border-slate-100 space-y-1.5 text-xs"></div>
+        </div>
+      </div>
+
+      <!-- One-Click Sample Scenarios -->
+      <div class="p-4 border-b border-slate-200">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2.5">2. Sample Test Scenarios</h2>
+        <div class="space-y-2">
+          <button onclick="runScenario('orchestrator')" class="w-full text-left p-3 rounded-xl border-2 border-brand-primary bg-blue-50/40 hover:bg-blue-50/80 transition group shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold text-blue-900">🧭 1. Sequential Orchestrator Skill</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-brand-primary text-white font-bold">Stage 1-3 + GCS</span>
+            </div>
+            <p class="text-[10px] text-slate-600 mt-1 leading-snug">
+              Stage 1 GCS Data Gathering &rarr; Stage 2 Sequential Reasoning &rarr; Stage 3 Executive 1-Pager Brief.
+            </p>
+          </button>
+
+          <button onclick="runScenario('baseline')" class="w-full text-left p-2.5 rounded-lg border border-slate-200 hover:border-brand-primary hover:bg-blue-50/40 transition group">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-800">💬 2. Baseline streamAssist Chat</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">Session Test</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1 line-clamp-2">Test multi-turn conversational state with Gemini Enterprise streamAssist.</p>
+          </button>
+
+          <button onclick="runScenario('triage')" class="w-full text-left p-2.5 rounded-lg border border-slate-200 hover:border-brand-primary hover:bg-blue-50/40 transition group">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-800">⚡ 3. Invoke Skill: 4-Tier Triage</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-brand-primary font-semibold">Skill Active</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1 line-clamp-2">Evaluate a sample request using the registered enterprise triage skill and scorecard table.</p>
+          </button>
+
+          <button onclick="runScenario('gcs_grounded')" class="w-full text-left p-2.5 rounded-lg border border-emerald-200 bg-emerald-50/20 hover:border-emerald-600 hover:bg-emerald-50/50 transition group">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-emerald-800">📂 4. GCS Connector Grounded Query</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">GCS Grounded</span>
+            </div>
+            <p class="text-[11px] text-slate-600 mt-1 line-clamp-2">Query documents indexed in the connected Cloud Storage DataStore with citations.</p>
+          </button>
+        </div>
+      </div>
+
+      <!-- Indexed GCS Bucket Documents -->
+      <div class="p-4 flex-1">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">3. Connected GCS Bucket Files</h2>
+          <button onclick="openUploadModal()" class="text-[11px] text-brand-primary hover:underline font-semibold">+ Upload to GCS</button>
+        </div>
+        <div id="gcs-doc-list" class="space-y-2 text-xs text-slate-600">
+          <div class="text-slate-400 italic text-xs">Loading indexed GCS documents...</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Chat Area -->
+    <main class="flex-1 flex flex-col bg-slate-50 overflow-hidden">
+      <!-- Active Mode Banner -->
+      <div class="bg-white border-b border-slate-200 px-6 py-2.5 flex items-center justify-between text-xs shrink-0">
+        <div class="flex items-center space-x-2">
+          <span class="font-semibold text-slate-600">Active Pipeline:</span>
+          <span class="px-2.5 py-0.5 rounded-full bg-slate-900 text-white font-medium">streamAssist API</span>
+          <span id="pill-skill" class="px-2.5 py-0.5 rounded-full bg-blue-100 text-brand-primary font-semibold border border-blue-200">⚡ Skill: Auto-Route</span>
+          <span id="pill-gcs" class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold border border-emerald-200">📂 GCS Bucket Connector Grounding</span>
+        </div>
+        <div class="text-slate-400 font-mono text-[11px]">
+          POST .../assistants/default_assistant:streamAssist
+        </div>
+      </div>
+
+      <!-- Messages Container -->
+      <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-5">
+        <!-- Welcome Card -->
+        <div class="max-w-4xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="brand-gradient px-6 py-4 text-white flex items-center justify-between">
+            <div>
+              <h1 class="text-lg font-extrabold tracking-tight">Gemini Enterprise streamAssist Reference Portal</h1>
+              <p class="text-xs text-blue-100 mt-0.5">All chat, custom skills, and Cloud Storage grounding execute exclusively through Discovery Engine <code class="bg-black/20 px-1.5 py-0.5 rounded">:streamAssist</code></p>
+            </div>
+            <span class="text-xs bg-white/20 backdrop-blur px-3 py-1 rounded-full font-semibold">Zero Direct LLM Calls ✓</span>
+          </div>
+
+          <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <div class="p-3.5 rounded-xl bg-blue-50/50 border border-blue-200">
+              <div class="font-bold text-blue-900 mb-1">1. Multi-Turn streamAssist</div>
+              <p class="text-slate-600 leading-relaxed">Direct conversational streaming with session continuity (<code class="text-[11px]">sessionInfo.session</code>) against your Gemini Enterprise engine.</p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+              <div class="font-bold text-slate-900 mb-1">2. Custom GE Skills &amp; Agents</div>
+              <p class="text-slate-600 leading-relaxed">Invokes registered Discovery Engine skills (<code class="text-[11px]">skillsSpec</code>) and Low-Code Agents (<code class="text-[11px]">agentsSpec</code>) with service-account fallback.</p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-emerald-50/50 border border-emerald-200">
+              <div class="font-bold text-emerald-800 mb-1">3. Cloud Storage (GCS) Connector</div>
+              <p class="text-slate-600 leading-relaxed">Grounds responses on GCS buckets via <code class="text-[11px]">toolsSpec.vertexAiSearchSpec.dataStoreSpecs</code> with inline citations.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Input Bar -->
+      <div class="bg-white border-t border-slate-200 p-4 shrink-0">
+        <form onsubmit="handleChatSubmit(event)" class="max-w-4xl mx-auto flex items-end space-x-3">
+          <div class="flex-1 relative">
+            <textarea
+              id="chat-input"
+              rows="2"
+              placeholder="Ask Gemini Enterprise streamAssist a question, invoke a registered skill, or query the GCS Bucket Connector..."
+              class="w-full rounded-xl border border-slate-300 focus:border-brand-primary focus:ring-2 focus:ring-blue-100 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 resize-none outline-none transition"
+              onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); handleChatSubmit(event);}"
+            ></textarea>
+          </div>
+          <button
+            type="submit"
+            id="send-btn"
+            class="brand-gradient hover:opacity-95 text-white font-bold px-6 py-3.5 rounded-xl shadow-md transition flex items-center space-x-2 shrink-0"
+          >
+            <span>Send to streamAssist</span>
+            <span>&rarr;</span>
+          </button>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal: View SKILL.md -->
+  <div id="skill-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
+      <div class="bg-brand-charcoal text-white px-6 py-4 flex items-center justify-between border-b-2 border-brand-primary">
+        <div>
+          <h3 class="font-bold text-base">Registered Gemini Enterprise Skills (SKILL.md)</h3>
+          <p class="text-xs text-slate-400 font-mono">enterprise-orchestrator-skill &amp; enterprise-triage-skill</p>
+        </div>
+        <button onclick="closeSkillModal()" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+      </div>
+      <div class="p-6 overflow-y-auto flex-1 bg-slate-50 space-y-4">
+        <div>
+          <div class="text-xs font-bold text-blue-900 mb-1">1. enterprise-orchestrator-skill (skills/enterprise-orchestrator-skill/SKILL.md)</div>
+          <pre id="orchestrator-skill-md-content" class="text-xs font-mono text-slate-800 whitespace-pre-wrap bg-white p-4 rounded-xl border border-slate-200"></pre>
+        </div>
+        <div>
+          <div class="text-xs font-bold text-slate-900 mb-1">2. enterprise-triage-skill (skills/enterprise-triage-skill/SKILL.md)</div>
+          <pre id="triage-skill-md-content" class="text-xs font-mono text-slate-800 whitespace-pre-wrap bg-white p-4 rounded-xl border border-slate-200"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Upload & Sync to GCS Connector -->
+  <div id="upload-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full flex flex-col shadow-2xl overflow-hidden border border-slate-200">
+      <div class="bg-brand-charcoal text-white px-6 py-4 flex items-center justify-between border-b-2 border-brand-primary">
+        <div>
+          <h3 class="font-bold text-base">Upload &amp; Sync Document to GCS Bucket Connector</h3>
+          <p class="text-xs text-slate-400 font-mono">Incremental import to Discovery Engine DataStore</p>
+        </div>
+        <button onclick="closeUploadModal()" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+      </div>
+      <form onsubmit="submitGcsUpload(event)" class="p-6 space-y-4 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Filename (in GCS Bucket)</label>
+          <input id="up-filename" type="text" required value="Enterprise_Policy_Update.html" class="w-full border border-slate-300 rounded-lg px-3 py-2 font-mono" />
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Document Title</label>
+          <input id="up-title" type="text" required value="Enterprise Policy & Compliance Guide Update" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Document Content</label>
+          <textarea id="up-content" rows="5" required class="w-full border border-slate-300 rounded-lg px-3 py-2">Standard Tier-1 requests under $1,000 with verified documentation qualify for automated straight-through processing within 2 hours.</textarea>
+        </div>
+        <div id="up-status" class="hidden p-3 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200"></div>
+        <div class="flex justify-end space-x-2 pt-2">
+          <button type="button" onclick="closeUploadModal()" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-semibold">Cancel</button>
+          <button type="submit" id="up-btn" class="px-4 py-2 rounded-lg brand-gradient text-white font-semibold">Upload to GCS &amp; Import to GE</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let currentSession = null;
+    let appConfig = null;
+
+    const SCENARIOS = {
+      orchestrator: {
+        useSkill: true,
+        skillId: "enterprise-orchestrator-skill",
+        useGcs: true,
+        query: "Prep me for my upcoming account review meeting using our connected GCS account dossier. Run Stage 1 data gathering, Stage 2 competitive & solution matching, and Stage 3 executive 1-pager brief."
+      },
+      baseline: {
+        useSkill: false,
+        skillId: "auto",
+        useGcs: false,
+        query: "Hello! Please remember reference code REF-10042 and summarize how you can assist with multi-turn sessions."
+      },
+      triage: {
+        useSkill: true,
+        skillId: "enterprise-triage-skill",
+        useGcs: true,
+        query: "Triage request REQ-88912 and output the verification badge [SKILL-VERIFIED: ENTERPRISE-TRIAGE-v1] along with the 4-Tier Triage Scorecard Table."
+      },
+      gcs_grounded: {
+        useSkill: false,
+        skillId: "auto",
+        useGcs: true,
+        query: "Summarize the key policy guidelines and documents currently indexed in our connected Cloud Storage DataStore."
+      }
+    };
+
+    async function initApp() {
+      updateModePills();
+      try {
+        const res = await fetch('/api/config');
+        appConfig = await res.json();
+        document.getElementById('hdr-engine').textContent = appConfig.engineId || '';
+        document.getElementById('triage-skill-md-content').textContent = appConfig.triageSkillMarkdown || '';
+        document.getElementById('orchestrator-skill-md-content').textContent = appConfig.orchestratorSkillMarkdown || '';
+
+        const dsList = document.getElementById('ds-checkbox-list');
+        dsList.innerHTML = (appConfig.gcsConnectors || []).map(ds => `
+          <label class="flex items-center space-x-2 text-slate-700">
+            <input type="checkbox" class="ds-checkbox rounded text-brand-primary" value="${escapeHtml(ds.id)}" checked>
+            <span class="truncate font-mono text-[11px]">${escapeHtml(ds.bucket)}</span>
+          </label>
+        `).join('');
+      } catch (e) {
+        console.error('Failed to load config:', e);
+      }
+      loadGcsDocuments();
+    }
+
+    async function loadGcsDocuments() {
+      const container = document.getElementById('gcs-doc-list');
+      try {
+        const res = await fetch('/api/gcs-documents');
+        const data = await res.json();
+        let html = '';
+        for (const [dsId, ds] of Object.entries(data.datastores || {})) {
+          html += `<div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+            <div class="font-bold text-slate-800 text-[11px] truncate">${escapeHtml(ds.displayName)}</div>
+            <div class="text-[10px] font-mono text-emerald-700 truncate mb-1.5">${escapeHtml(ds.bucket)}</div>
+            <div class="space-y-1">`;
+          for (const doc of (ds.documents || [])) {
+            const fileName = (doc.uri || '').split('/').pop() || doc.id;
+            html += `<div class="flex items-center space-x-1.5 text-[11px] bg-white px-2 py-1 rounded border border-slate-100">
+              <span class="text-emerald-600">📄</span>
+              <span class="truncate font-medium text-slate-700" title="${escapeHtml(doc.uri)}">${escapeHtml(fileName)}</span>
+            </div>`;
+          }
+          html += `</div></div>`;
+        }
+        container.innerHTML = html || '<div class="text-slate-400">No documents found.</div>';
+      } catch (e) {
+        container.innerHTML = '<div class="text-slate-400">Configure GE_DATASTORE_ID to list indexed GCS documents.</div>';
+      }
+    }
+
+    function updateModePills() {
+      const useSkill = document.getElementById('toggle-skill').checked;
+      const useGcs = document.getElementById('toggle-gcs').checked;
+      const skillSel = document.getElementById('skill-select').value;
+      const pillSkill = document.getElementById('pill-skill');
+      pillSkill.classList.toggle('hidden', !useSkill);
+      pillSkill.textContent = `⚡ Skill: ${skillSel}`;
+      document.getElementById('pill-gcs').classList.toggle('hidden', !useGcs);
+    }
+
+    function resetSession() {
+      currentSession = null;
+      document.getElementById('session-badge').textContent = 'New Conversation';
+    }
+
+    function runScenario(key) {
+      const sc = SCENARIOS[key];
+      if (!sc) return;
+      document.getElementById('toggle-skill').checked = sc.useSkill;
+      document.getElementById('toggle-gcs').checked = sc.useGcs;
+      if (sc.skillId) {
+        document.getElementById('skill-select').value = sc.skillId;
+      }
+      updateModePills();
+      sendQuery(sc.query);
+    }
+
+    function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('chat-input');
+      const q = input.value.trim();
+      if (!q) return;
+      input.value = '';
+      sendQuery(q);
+    }
+
+    async function sendQuery(queryText) {
+      const container = document.getElementById('chat-messages');
+      const sendBtn = document.getElementById('send-btn');
+      const useSkill = document.getElementById('toggle-skill').checked;
+      const skillId = document.getElementById('skill-select').value;
+      const useGcs = document.getElementById('toggle-gcs').checked;
+      const selectedDs = Array.from(document.querySelectorAll('.ds-checkbox:checked')).map(cb => cb.value);
+
+      const userDiv = document.createElement('div');
+      userDiv.className = 'max-w-4xl mx-auto flex justify-end';
+      userDiv.innerHTML = `
+        <div class="max-w-2xl brand-gradient text-white rounded-2xl rounded-tr-sm px-5 py-3.5 shadow-sm">
+          <div class="flex items-center space-x-2 mb-1 opacity-90 text-[11px]">
+            <span class="font-bold uppercase tracking-wider">User</span>
+            ${useSkill ? `<span class="bg-white/20 px-1.5 py-0.5 rounded">+ Skill (${escapeHtml(skillId)})</span>` : ''}
+            ${useGcs ? '<span class="bg-white/20 px-1.5 py-0.5 rounded">+ GCS Connector</span>' : ''}
+          </div>
+          <div class="text-sm leading-relaxed whitespace-pre-wrap">${escapeHtml(queryText)}</div>
+        </div>
+      `;
+      container.appendChild(userDiv);
+
+      const loadId = 'load-' + Date.now();
+      const loadDiv = document.createElement('div');
+      loadDiv.id = loadId;
+      loadDiv.className = 'max-w-4xl mx-auto flex justify-start';
+      loadDiv.innerHTML = `
+        <div class="bg-white border border-slate-200 rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm flex items-center space-x-3 text-xs text-slate-600">
+          <div class="w-4 h-4 border-2 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
+          <span>Calling Gemini Enterprise <code class="font-mono text-brand-primary">streamAssist</code>...</span>
+        </div>
+      `;
+      container.appendChild(loadDiv);
+      container.scrollTop = container.scrollHeight;
+      sendBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: queryText,
+            session: currentSession,
+            use_skill: useSkill,
+            skill_id: skillId,
+            use_gcs_connector: useGcs,
+            selected_datastores: selectedDs
+          })
+        });
+        const data = await res.json();
+        document.getElementById(loadId)?.remove();
+
+        if (!res.ok) {
+          throw new Error(JSON.stringify(data.detail || data));
+        }
+
+        if (data.session) {
+          currentSession = data.session;
+          document.getElementById('session-badge').textContent = data.session.split('/').pop();
+        }
+
+        renderAssistantReply(data);
+      } catch (err) {
+        document.getElementById(loadId)?.remove();
+        const errDiv = document.createElement('div');
+        errDiv.className = 'max-w-4xl mx-auto bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 text-xs font-mono whitespace-pre-wrap';
+        errDiv.textContent = 'Error calling streamAssist: ' + err.message;
+        container.appendChild(errDiv);
+      } finally {
+        sendBtn.disabled = false;
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+
+    function renderAssistantReply(data) {
+      const container = document.getElementById('chat-messages');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'max-w-4xl mx-auto flex justify-start';
+
+      let cleanAnswer = data.answer || '(No text returned)';
+      const badgeHtml = data.skillVerified
+        ? `<span class="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300 font-bold text-[11px]">✓ Skill Verified (${escapeHtml(data.verifiedSkillId || 'active')})</span>`
+        : '';
+
+      let citationsHtml = '';
+      if (data.citations && data.citations.length > 0) {
+        citationsHtml = `
+          <div class="mt-4 pt-3 border-t border-slate-200">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-800 mb-2">
+              📂 Grounded Cloud Storage (GCS) Citations (${data.citations.length})
+            </div>
+            <div class="flex flex-wrap gap-2">
+              ${data.citations.map(c => `
+                <div class="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs flex items-center space-x-2">
+                  <span class="text-emerald-600 font-bold">✓</span>
+                  <div>
+                    <div class="font-semibold text-slate-800 text-[11px]">${escapeHtml(c.title)}</div>
+                    <div class="font-mono text-[10px] text-emerald-700">${escapeHtml(c.uri)}</div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      const payloadJson = escapeHtml(JSON.stringify(data.requestPayload || {}, null, 2));
+
+      msgDiv.innerHTML = `
+        <div class="w-full bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-5 shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
+            <div class="flex items-center space-x-2">
+              <span class="w-6 h-6 rounded-md brand-gradient text-white font-extrabold text-xs flex items-center justify-center">GE</span>
+              <span class="font-bold text-xs text-slate-900">Gemini Enterprise Assistant</span>
+              ${badgeHtml}
+            </div>
+            <div class="flex items-center space-x-2 text-[11px] text-slate-400 font-mono">
+              <span>${data.latencyMs || 0} ms</span>
+              <span>&bull;</span>
+              <span>${data.chunkCount || 1} stream chunks</span>
+            </div>
+          </div>
+
+          <div class="markdown-body text-sm text-slate-800">${marked.parse(cleanAnswer)}</div>
+          ${citationsHtml}
+
+          <details class="mt-3 text-xs bg-slate-900 text-slate-200 rounded-lg p-2.5">
+            <summary class="cursor-pointer font-mono text-[11px] text-slate-300">🔍 Inspect streamAssist API Request &amp; Session Metadata</summary>
+            <div class="mt-2 space-y-1 font-mono text-[11px]">
+              <div class="text-emerald-400">POST ${escapeHtml(data.endpoint || '')}</div>
+              <div class="text-slate-400">Session: ${escapeHtml(data.session || 'N/A')}</div>
+              <pre class="text-amber-300 overflow-x-auto pt-1">${payloadJson}</pre>
+            </div>
+          </details>
+        </div>
+      `;
+      container.appendChild(msgDiv);
+    }
+
+    function openSkillModal() {
+      document.getElementById('skill-modal').classList.remove('hidden');
+      document.getElementById('skill-modal').classList.add('flex');
+    }
+    function closeSkillModal() {
+      document.getElementById('skill-modal').classList.add('hidden');
+      document.getElementById('skill-modal').classList.remove('flex');
+    }
+    function openUploadModal() {
+      document.getElementById('upload-modal').classList.remove('hidden');
+      document.getElementById('upload-modal').classList.add('flex');
+    }
+    function closeUploadModal() {
+      document.getElementById('upload-modal').classList.add('hidden');
+      document.getElementById('upload-modal').classList.remove('flex');
+    }
+
+    async function submitGcsUpload(e) {
+      e.preventDefault();
+      const btn = document.getElementById('up-btn');
+      const status = document.getElementById('up-status');
+      btn.disabled = true;
+      btn.textContent = 'Uploading & Importing...';
+      try {
+        const res = await fetch('/api/gcs-upload-and-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: document.getElementById('up-filename').value,
+            title: document.getElementById('up-title').value,
+            content: document.getElementById('up-content').value
+          })
+        });
+        const data = await res.json();
+        status.classList.remove('hidden');
+        status.innerHTML = `<strong>Success!</strong> Uploaded to <code>${escapeHtml(data.gcsUri)}</code> and triggered incremental GE datastore import.`;
+        loadGcsDocuments();
+      } catch (err) {
+        status.classList.remove('hidden');
+        status.textContent = 'Upload failed: ' + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Upload to GCS & Import to GE';
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>

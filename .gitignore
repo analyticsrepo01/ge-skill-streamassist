@@ -1,0 +1,26 @@
+# Sensitive / Client-Specific / Use-Case Files (DO NOT SHARE)
+donoshare/
+donotshare/
+usecase.png
+*.png
+*.jpg
+*.jpeg
+*.pdf
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*credentials*.json
+*service-account*.json
+
+# Python / OS / IDE artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+.venv/
+venv/
+.DS_Store
